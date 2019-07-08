@@ -1,0 +1,58 @@
+#include "AT91SAM9263.h"
+#include "AT91SAM9263-EK.h"
+
+#define PINC_DRXD (1 << 30)
+#define PINC_DTXD (1 << 31)
+
+typedef unsigned char byte;
+
+byte dbgu_get() {
+  while((*AT91C_DBGU_CSR & AT91C_US_RXRDY) == 0);
+  return *AT91C_DBGU_RHR & 0xFF;
+}
+
+void dbgu_put(byte b) {
+  while((*AT91C_DBGU_CSR & AT91C_US_TXRDY) == 0);
+  *AT91C_DBGU_THR = b;
+}
+
+#define BUFFER_SIZE 8
+
+byte buffer[BUFFER_SIZE];
+
+int main(void) {
+  
+  int i;
+  
+  *AT91C_DBGU_CR = AT91C_US_RSTRX | AT91C_US_RSTTX | AT91C_US_RXDIS | AT91C_US_TXDIS;
+  
+  *AT91C_PIOC_PDR = PINC_DRXD | PINC_DTXD;
+  *AT91C_PIOC_ASR = PINC_DRXD | PINC_DTXD;
+  
+  *AT91C_DBGU_MR = AT91C_US_CHMODE_NORMAL | AT91C_US_PAR_NONE;
+  
+  *AT91C_DBGU_CR = AT91C_US_RXEN | AT91C_US_TXEN;
+  
+  while(1) {
+    for(i = 0; i < BUFFER_SIZE; ++i) {
+      buffer[i] = dbgu_get();
+    }
+    for(i = 0; i < BUFFER_SIZE; ++i) {
+      byte b = buffer[i];
+      if(b >= 'A' && b <= 'Z') {
+	buffer[i] = b - 'A' + 'a';
+      } else if(b >= 'a' && b <= 'z') {
+	buffer[i] = b - 'a' + 'A';
+      }
+    }
+    for(i = 0; i < BUFFER_SIZE; ++i) {
+      dbgu_put(buffer[i]);
+      if(buffer[i] == '\r') {
+	dbgu_put('\n');
+      }
+    }
+  }
+
+}
+
+void dbgu_print_ascii(const char* string){}
